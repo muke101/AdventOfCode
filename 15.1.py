@@ -91,6 +91,7 @@ def attack(x,y,target):
 	else:
 		chosen = targets[chosenHealth]
 	health[chosen]-=3
+	#print(health)
 	if health[chosen] <= 0:
 		rawMap[graphedMap[chosen[1]][chosen[0]]-1] = '.'
 		del health[chosen]
@@ -109,7 +110,7 @@ rounds = 0
 breaking = False
 while len([i for i in rawMap if i == 'E']) != 0 and len([i for i in rawMap if i == 'G']) != 0:
 	moved = dict.fromkeys(moved, False)
-	print(health)
+	print([i for i in rawMap if i == 'G'])
 	for y in range(yLen):
 		for x in range(xLen):
 			if lookUp(x,y) == 'E' and moved[(x,y)] == False:
@@ -147,5 +148,6 @@ for y in range(yLen):
 	for x in range(xLen):
 		if lookUp(x,y) in ('E', 'G'):
 			totalHealth+=health[(x,y)]
+
 print(rounds, totalHealth)
 print(totalHealth*rounds)
