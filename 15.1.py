@@ -110,7 +110,6 @@ rounds = 0
 breaking = False
 while len([i for i in rawMap if i == 'E']) != 0 and len([i for i in rawMap if i == 'G']) != 0:
 	moved = dict.fromkeys(moved, False)
-	print([i for i in rawMap if i == 'G'])
 	for y in range(yLen):
 		for x in range(xLen):
 			if lookUp(x,y) == 'E' and moved[(x,y)] == False:
