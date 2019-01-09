@@ -3,7 +3,6 @@ import numpy as np
 import collections
 
 rawMap = sys.stdin.read() #piping in map via cat
-
 xLen = 0
 for i in rawMap:
 	if i != '\n':
@@ -13,20 +12,18 @@ for i in rawMap:
 yLen = len([i for i in rawMap.splitlines()])
 
 rawMap = list(rawMap.replace('\n', ''))
-
 graphedMap = np.empty((yLen, xLen), dtype=int)
 iterator = enumerate(rawMap, start=1)
 for y in range(yLen):
 	for x in range(xLen):
 		graphedMap[y][x] = next(iterator)[0]
 
-
-def lookUp(x,y):
+def lookUp(y,x):
 	return rawMap[graphedMap[y][x]-1]
 
 def graphNeighbors(coords, target):
-	x,y = coords
-	return filter(lambda coords: lookUp(coords[0],coords[1]) not in ('#', ['E' if target == 'G' else 'G']), [(x+1,y),(x,y+1),(x-1,y),(x,y-1)])
+	y,x = coords
+	return filter(lambda coords: lookUp(coords[0],coords[1]) not in ('#', ['E' if target == 'G' else 'G'][0]), [(y,x+1),(y+1,x),(y,x-1),(y-1,x)])
 
 def distance(target, paths):
 	current = target
@@ -36,64 +33,54 @@ def distance(target, paths):
 		current = paths[current]
 	return path
 
-def breadthSearch(xStart, yStart, target): #returns the shortest path by read order to next enemy
+def breadthSearch(yStart, xStart, target): #returns the shortest path by read order to next enemy
 	cameFrom = {}
 	targets = []
-	cameFrom[(xStart,yStart)] = None
+	cameFrom[(yStart,xStart)] = None
 	frontier = collections.deque()
-	frontier.append((xStart,yStart))
+	frontier.append((yStart,xStart))
 
 	while len(frontier) != 0:
 		current = frontier.popleft()
-		for x,y in graphNeighbors(current, target):
-			if (x,y) not in cameFrom:
-				cameFrom[(x,y)] = current
-				if lookUp(x,y) == target:
-					targets.append((x,y))
+		for y,x in graphNeighbors(current, target):
+			if (y,x) not in cameFrom:
+				cameFrom[(y,x)] = current
+				if lookUp(y,x) == target:
+					targets.append((y,x))
 				else: 
-					frontier.append((x,y))
+					frontier.append((y,x))
 
 	if len(targets) == 0:
 		return 1
 
 	#finding distances to all detected targets, handles paths of equal length
 	paths = []
-	distances = {}
+	distances = set()
 	matches = collections.defaultdict(list)
 	for targ in targets:
 		paths.append(distance(targ, cameFrom))
-	for c, path in enumerate(paths):
-		length = len(path)
-		if length in distances.values():
-			matches[length].append(path)
-		distances[c] = length
+	for path in paths:
+		matches[len(path)].append(path)
 	minimum = min(paths, key=len)
-	if len(minimum) in matches:
-		return min(matches[len(minimum)])[1:-1] #smallest x and y values will equate to read order
-	else:
-		return minimum[1:-1] #cut off start (-1) and target (1)
+	return min(matches[len(minimum)])[1:-1] #smallest x and y values will equate to read order, [1:-1] to cut off start and end destinations
 
-def attack(x,y,target):
+def attack(y,x,target):
 	targets = []
 	matches = collections.defaultdict(list)
-	choices = {}
-	for x,y in graphNeighbors((x,y),target):
-		if lookUp(x,y) == target:
-			targets.append((x,y))
-	for c, i in enumerate(targets):
-		targetsHealth = health[i]
-		if targetsHealth in choices:
-			matches[targetsHealth].append(i)
-		choices[c] = targetsHealth
+	choices = set()
+	for y,x in graphNeighbors((y,x),target):
+		if lookUp(y,x) == target:
+			targets.append((y,x))
+	for targ in targets:
+		targetsHealth = health[targ]
+		matches[targetsHealth].append(targ)
+		choices.add(targetsHealth)
 	chosenHealth = min(choices)
-	if chosenHealth in matches:
-		chosen = min(matches[choices[chosenHealth]]) #jesus fucking christ I have to be doing something avoidable here
-	else:
-		chosen = targets[chosenHealth]
+	chosen = min(matches[chosenHealth])
+
 	health[chosen]-=3
-	#print(health)
 	if health[chosen] <= 0:
-		rawMap[graphedMap[chosen[1]][chosen[0]]-1] = '.'
+		rawMap[graphedMap[chosen[0]][chosen[1]]-1] = '.'
 		del health[chosen]
 		del moved[chosen]
 
@@ -102,51 +89,53 @@ moved = {}
 
 for y in range(yLen):
 	for x in range(xLen):
-		if lookUp(x,y) in ('E', 'G'):
-			health[(x,y)] = 200
-			moved[(x,y)] = False
+		if lookUp(y,x) in ('E', 'G'):
+			health[(y,x)] = 200
+			moved[(y,x)] = False
 
 rounds = 0
 breaking = False
 while len([i for i in rawMap if i == 'E']) != 0 and len([i for i in rawMap if i == 'G']) != 0:
+	print(''.join(np.insert(rawMap, [i*xLen for i in range(1,yLen)], '\n')), '\n')
 	moved = dict.fromkeys(moved, False)
 	for y in range(yLen):
 		for x in range(xLen):
-			if lookUp(x,y) == 'E' and moved[(x,y)] == False:
-				path = breadthSearch(x,y,'G')
-				if path != 1: #TODO: elves/goblins won't move if they're blocked for a turn, kinda dumb
+			if lookUp(y,x) == 'E' and moved[(y,x)] == False:
+				path = breadthSearch(y,x,'G')
+				if path != 1:
 					if len(path) == 0: #if next to target
-						attack(x,y,'G')
+						attack(y,x,'G')
 					else:
-						xNew,yNew = path[-1]
+						yNew,xNew = path[-1]
 						rawMap[graphedMap[y][x]-1] = '.'
 						rawMap[graphedMap[yNew][xNew]-1] = 'E'
-						moved[(x,y)] = True
-						moved[(xNew,yNew)] = moved.pop((x,y))
-						health[(xNew,yNew)] = health.pop((x,y))
+						moved[(y,x)] = True
+						moved[(yNew,xNew)] = moved.pop((y,x))
+						health[(yNew,xNew)] = health.pop((y,x))
 						if len(path) == 1: #ignore the already moved coordinate so don't have to recalculate
-							attack(xNew,yNew,'G')
-			if lookUp(x,y) == 'G' and moved[(x,y)] == False:
-				path = breadthSearch(x,y,'E')
+							attack(yNew,xNew,'G')
+			if lookUp(y,x) == 'G' and moved[(y,x)] == False:
+				path = breadthSearch(y,x,'E')
 				if path != 1:
 					if len(path) == 0:
-						attack(x,y,'E')
+						attack(y,x,'E')
 					else:
-						xNew,yNew = path[-1]
+						yNew,xNew = path[-1]
 						rawMap[graphedMap[y][x]-1] = '.'
 						rawMap[graphedMap[yNew][xNew]-1] = 'G'
-						moved[(x,y)] = True
-						moved[(xNew,yNew)] = moved.pop((x,y))
-						health[(xNew,yNew)] = health.pop((x,y))
+						moved[(y,x)] = True
+						moved[(yNew,xNew)] = moved.pop((y,x))
+						health[(yNew,xNew)] = health.pop((y,x))
 						if len(path) == 1:
-							attack(xNew,yNew,'E')
+							attack(yNew,xNew,'E')
 	rounds+=1
+rounds-=1
 
 totalHealth = 0
 for y in range(yLen):
 	for x in range(xLen):
-		if lookUp(x,y) in ('E', 'G'):
-			totalHealth+=health[(x,y)]
+		if lookUp(y,x) in ('E', 'G'):
+			totalHealth+=health[(y,x)]
 
 print(rounds, totalHealth)
 print(totalHealth*rounds)
