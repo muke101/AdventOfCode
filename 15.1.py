@@ -83,6 +83,15 @@ def attack(y,x,target):
 		rawMap[graphedMap[chosen[0]][chosen[1]]-1] = '.'
 		del health[chosen]
 		del moved[chosen]
+		return 0
+	return 1
+
+def move(y,x,yNew,xNew,path,target):
+	rawMap[graphedMap[y][x]-1] = '.'
+	rawMap[graphedMap[yNew][xNew]-1] = ['E' if target == 'G' else 'G'][0]
+	moved[(y,x)] = True
+	moved[(yNew,xNew)] = moved.pop((y,x))
+	health[(yNew,xNew)] = health.pop((y,x))
 
 health = {}
 moved = {}
@@ -99,33 +108,34 @@ while len([i for i in rawMap if i == 'E']) != 0 and len([i for i in rawMap if i 
 	print(''.join(np.insert(rawMap, [i*xLen for i in range(1,yLen)], '\n')), '\n')
 	moved = dict.fromkeys(moved, False)
 	for y in range(yLen):
-		for x in range(xLen):
-			if lookUp(y,x) == 'E' and moved[(y,x)] == False:
+		for x in range(xLen): #TODO: if a unit is blocked by another unit, which then dies after the original unit has been parsed, must go back to that unit and carry out it's turn
+			if lookUp(y,x) == 'E' and moved[(y,x)] == False: #does this mean that units blocked by then dead units should recalculate their turns? Fuck. 
 				path = breadthSearch(y,x,'G')
-				if path != 1:
+				if path != 1: #returns 1 if no targets found
 					if len(path) == 0: #if next to target
-						attack(y,x,'G')
+						if attack(y,x,'G') == 0: #returns 0 if target killed
+							path = breadthSearch(y,x,'G')
+							if path != 1 and len(path) != 0:
+								yNew,xNew = path[-1]
+								move(y,x,yNew,xNew,path,'G')
 					else:
 						yNew,xNew = path[-1]
-						rawMap[graphedMap[y][x]-1] = '.'
-						rawMap[graphedMap[yNew][xNew]-1] = 'E'
-						moved[(y,x)] = True
-						moved[(yNew,xNew)] = moved.pop((y,x))
-						health[(yNew,xNew)] = health.pop((y,x))
+						move(y,x,yNew,xNew,path,'G')
 						if len(path) == 1: #ignore the already moved coordinate so don't have to recalculate
 							attack(yNew,xNew,'G')
+
 			if lookUp(y,x) == 'G' and moved[(y,x)] == False:
 				path = breadthSearch(y,x,'E')
 				if path != 1:
 					if len(path) == 0:
-						attack(y,x,'E')
+						if attack(y,x,'E') == 0:
+							path = breadthSearch(y,x,'E')
+							if path != 1 and len(path) != 0:
+								yNew,xNew = path[-1]
+								move(y,x,yNew,xNew,path,'E')
 					else:
 						yNew,xNew = path[-1]
-						rawMap[graphedMap[y][x]-1] = '.'
-						rawMap[graphedMap[yNew][xNew]-1] = 'G'
-						moved[(y,x)] = True
-						moved[(yNew,xNew)] = moved.pop((y,x))
-						health[(yNew,xNew)] = health.pop((y,x))
+						move(y,x,yNew,xNew,path,'E')
 						if len(path) == 1:
 							attack(yNew,xNew,'E')
 	rounds+=1
@@ -136,6 +146,6 @@ for y in range(yLen):
 	for x in range(xLen):
 		if lookUp(y,x) in ('E', 'G'):
 			totalHealth+=health[(y,x)]
-
+print(''.join(np.insert(rawMap, [i*xLen for i in range(1,yLen)], '\n')), '\n')
 print(rounds, totalHealth)
 print(totalHealth*rounds)
